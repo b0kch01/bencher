@@ -55,52 +55,23 @@ const MERGE_EPSILON_SECONDS = 0.000_001;
 const QUERY_PARAM_KEY = "bench";
 
 const defaultJson = `{
-  "startTime": "3/4/2026, 7:10:53 PM",
+  "startTime": "3/4/2026, 10:18:18 PM",
   "marks": [
-    {
-      "label": "Init",
-      "time": 0
-    },
-    {
-      "label": "Parse auth claims",
-      "time": 0
-    },
-    {
-      "label": "Init prisma client",
-      "time": 0
-    },
-    {
-      "label": "Find unique user",
-      "time": 0.019
-    },
-    {
-      "label": "List posts",
-      "time": 0.087
-    },
-    {
-      "label": "Parse posts",
-      "time": 0.087
-    },
-    {
-      "label": "Should Fetch Causes",
-      "time": 0.087
-    },
-    {
-      "label": "Supported by user db call",
-      "time": 0.09
-    },
-    {
-      "label": "get causes",
-      "time": 0.139
-    },
-    {
-      "label": "arrange causes",
-      "time": 0.139
-    },
-    {
-      "label": "finish",
-      "time": 0.139
-    }
+    { "label": "feed: init", "time": 0 },
+    { "label": "Parse auth claims", "time": 0 },
+    { "label": "feed: init prisma client", "time": 0.406 },
+    { "label": "feed: find unique user", "time": 0.904 },
+    { "label": "listv2: parse auth claims", "time": 0.905 },
+    { "label": "listv2: validate json", "time": 0.985 },
+    { "label": "listv2: get unique user", "time": 0.994 },
+    { "label": "listv2: db call to get posts", "time": 1.07 },
+    { "label": "listv2: finish listv2", "time": 1.072 },
+    { "label": "feed: parse posts", "time": 1.072 },
+    { "label": "feed: should Fetch Causes", "time": 1.076 },
+    { "label": "feed: supported by user db call", "time": 1.08 },
+    { "label": "feed: get causes", "time": 1.357 },
+    { "label": "feed: arrange causes", "time": 1.357 },
+    { "label": "feed: finish", "time": 1.357 }
   ]
 }`;
 
