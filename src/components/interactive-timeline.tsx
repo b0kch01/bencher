@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, CircleAlert, CircleCheck, MapPin, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ArrowRight, CircleAlert, CircleCheck, MapPin, type LucideIcon } from "lucide-react";
 import { DataSet } from "vis-data/peer";
 import { Timeline } from "vis-timeline/peer";
 import "vis-timeline/styles/vis-timeline-graph2d.min.css";
@@ -47,6 +47,8 @@ interface TooltipContent {
   kind: "mark" | "segment";
   title: string;
   subtitle: string;
+  fromLabel?: string;
+  toLabel?: string;
   severity?: "low" | "medium" | "high";
 }
 
@@ -56,8 +58,8 @@ interface TooltipState extends TooltipContent {
 }
 
 const HOVER_DELAY_MS = 40;
-const TOOLTIP_WIDTH_PX = 280;
-const TOOLTIP_HEIGHT_PX = 110;
+const TOOLTIP_WIDTH_PX = 420;
+const TOOLTIP_HEIGHT_PX = 180;
 const WINDOW_PADDING_PERCENT = 0.1;
 
 function formatSeconds(seconds: number): string {
@@ -191,13 +193,17 @@ export function InteractiveTimeline({
     for (const segment of segments) {
       const percentOfTotal = totalTime > 0 ? (segment.duration / totalTime) * 100 : 0;
       const severity = getSpanSeverity(percentOfTotal);
+      const fromHierarchy = parseHierarchyLabel(segment.fromLabel);
       const toHierarchy = parseHierarchyLabel(segment.toLabel);
-      const toLabelTitle = toHierarchy.child ? `${toHierarchy.parent} -> ${toHierarchy.child}` : toHierarchy.parent;
+      const fromLeafLabel = fromHierarchy.child ?? fromHierarchy.parent;
+      const toLeafLabel = toHierarchy.child ?? toHierarchy.parent;
 
       map.set(`segment-${segment.index}`, {
         kind: "segment",
-        title: `${segment.fromLabel} -> ${toLabelTitle}`,
+        title: `${fromLeafLabel} ${toLeafLabel}`,
         subtitle: `${formatSeconds(segment.start)} to ${formatSeconds(segment.end)} | ${formatSeconds(segment.duration)} (${formatPercent(percentOfTotal)})`,
+        fromLabel: fromLeafLabel,
+        toLabel: toLeafLabel,
         severity
       });
     }
@@ -517,13 +523,21 @@ export function InteractiveTimeline({
 
       {tooltip && tooltipIconMeta ? (
         <Card
-          className="tooltip-pop pointer-events-none absolute z-20 w-[280px] border-white/60 bg-white/78 shadow-[0_18px_36px_-20px_rgba(15,23,42,0.55)] backdrop-blur-xl"
+          className="tooltip-pop pointer-events-none absolute z-20 w-[420px] rounded-[1.4rem] border border-white/90 bg-[linear-gradient(145deg,rgba(255,255,255,0.9)_0%,rgba(255,255,255,0.66)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-1px_0_rgba(226,232,240,0.48),0_16px_34px_-22px_rgba(15,23,42,0.38)] backdrop-blur-[22px]"
           style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }}
         >
           <CardContent className="space-y-1 p-3">
             <div className="flex items-center gap-2">
               <tooltipIconMeta.Icon className={`h-4 w-4 ${tooltipIconMeta.className}`} />
-              <p className="text-[0.98rem] font-semibold text-slate-900">{tooltip.title}</p>
+              {tooltip.fromLabel && tooltip.toLabel ? (
+                <p className="flex min-w-0 flex-1 items-start gap-1.5 text-[0.98rem] font-semibold text-slate-900">
+                  <span className="break-words">{tooltip.fromLabel}</span>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 self-center text-slate-500" />
+                  <span className="break-words">{tooltip.toLabel}</span>
+                </p>
+              ) : (
+                <p className="break-words text-[0.98rem] font-semibold text-slate-900">{tooltip.title}</p>
+              )}
             </div>
             <p className="text-sm text-slate-600">{tooltip.subtitle}</p>
           </CardContent>

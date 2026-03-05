@@ -37,14 +37,6 @@ interface ParentSpanSegment {
   blockIndex: number;
 }
 
-interface ParentSpanGroup {
-  parent: string;
-  spans: SpanSegment[];
-  totalDuration: number;
-  start: number;
-  end: number;
-}
-
 interface LabelHierarchy {
   parent: string;
   child: string | null;
@@ -143,24 +135,6 @@ function parseHierarchyLabel(label: string): LabelHierarchy {
   }
 
   return { parent, child };
-}
-
-function HierarchyLabel({ label }: { label: string }) {
-  const hierarchy = parseHierarchyLabel(label);
-
-  if (!hierarchy.child) {
-    return <span className="truncate">{hierarchy.parent}</span>;
-  }
-
-  return (
-    <span className="inline-flex min-w-0 flex-col leading-tight">
-      <span className="truncate text-[0.8rem] font-semibold uppercase tracking-wide text-slate-500">{hierarchy.parent}</span>
-      <span className="truncate text-[0.95rem] text-slate-800">
-        <span className="mr-1 text-slate-400">↳</span>
-        {hierarchy.child}
-      </span>
-    </span>
-  );
 }
 
 function buildParentSpanSegments(segments: SpanSegment[]): ParentSpanSegment[] {
@@ -353,36 +327,6 @@ export default function App() {
   }, [segments]);
 
   const parentSpanSegments = useMemo(() => buildParentSpanSegments(segments), [segments]);
-
-  const parentGroups = useMemo<ParentSpanGroup[]>(() => {
-    const byParent = new Map<string, ParentSpanGroup>();
-
-    for (const segment of segments) {
-      const parent = parseHierarchyLabel(segment.toLabel).parent;
-      const existing = byParent.get(parent);
-      if (existing) {
-        existing.spans.push(segment);
-        existing.totalDuration += segment.duration;
-        existing.start = Math.min(existing.start, segment.start);
-        existing.end = Math.max(existing.end, segment.end);
-      } else {
-        byParent.set(parent, {
-          parent,
-          spans: [segment],
-          totalDuration: segment.duration,
-          start: segment.start,
-          end: segment.end
-        });
-      }
-    }
-
-    return [...byParent.values()]
-      .map((group) => ({
-        ...group,
-        spans: [...group.spans].sort((a, b) => a.start - b.start || a.end - b.end)
-      }))
-      .sort((a, b) => a.start - b.start || a.parent.localeCompare(b.parent));
-  }, [segments]);
 
   const parsedStart = Number.isNaN(new Date(payload.startTime).valueOf())
     ? payload.startTime
@@ -588,54 +532,66 @@ export default function App() {
               {segments.length === 0 ? (
                 <p className="text-sm text-slate-500">Add at least two marks to render spans.</p>
               ) : (
-                parentGroups.map((group, groupIndex) => (
-                  <section
-                    key={`parent-group-${group.parent}`}
-                    className="space-y-2"
-                  >
-                    <div className={`parent-group-header glass-subpanel rounded-xl px-3 py-2 ${activeParentName === group.parent ? "parent-group-active" : ""}`}>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-800">{group.parent}</p>
-                        <div className="flex items-center gap-2 text-[0.82rem] text-slate-500">
-                          <span>{group.spans.length} spans</span>
-                          <span>{formatSeconds(group.totalDuration)}</span>
-                        </div>
-                      </div>
-                    </div>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_9.5rem_4.5rem] gap-3 px-2 text-[0.78rem] font-semibold uppercase tracking-wide text-slate-500">
+                    <span>Transition</span>
+                    <span>Window</span>
+                    <span>Duration</span>
+                    <span>%</span>
+                  </div>
 
-                    {group.spans.map((segment) => (
+                  {segments.map((segment, segmentOrder) => {
+                    const toHierarchy = parseHierarchyLabel(segment.toLabel);
+                    const fromHierarchy = parseHierarchyLabel(segment.fromLabel);
+                    const rawStartPercent = totalTime > 0 ? (segment.start / totalTime) * 100 : 0;
+                    const rawEndPercent = totalTime > 0 ? (segment.end / totalTime) * 100 : 0;
+                    const startPercent = Math.max(Math.min(rawStartPercent, 100), 0);
+                    const endPercent = Math.max(Math.min(rawEndPercent, 100), startPercent);
+                    const widthPercent = Math.max(endPercent - startPercent, 0);
+
+                    return (
                       <div
                         key={`row-${segment.label}-${segment.index}`}
-                        className={`glass-row span-row-enter grid gap-3 rounded-xl p-3 text-[0.95rem] transition-transform duration-200 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center ${
+                        className={`glass-row span-row-enter grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_9.5rem_4.5rem] items-center gap-3 rounded-xl p-3 text-[0.98rem] transition-transform duration-200 ${
                           activeSegmentIndex === segment.index ? "span-row-active" : ""
                         }`}
-                        style={{ animationDelay: `${Math.min(groupIndex * 35 + segment.index * 24, 360)}ms` }}
+                        style={{ animationDelay: `${Math.min(segmentOrder * 24, 360)}ms` }}
                       >
-                        <div>
-                          <p className="flex items-start gap-1.5 font-medium text-slate-900">
-                            <span className="min-w-0 flex-1">
-                              <HierarchyLabel label={segment.fromLabel} />
-                            </span>
-                            <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-slate-500" />
-                            <span className="min-w-0 flex-1">
-                              <HierarchyLabel label={segment.toLabel} />
-                            </span>
-                          </p>
-                          <p className="text-sm text-slate-500">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold uppercase tracking-wide text-slate-500">{toHierarchy.parent}</p>
+                          <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                            <span className="truncate font-medium text-slate-800">{fromHierarchy.child ?? fromHierarchy.parent}</span>
+                            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                            <span className="truncate font-medium text-slate-900">{toHierarchy.child ?? toHierarchy.parent}</span>
+                          </div>
+                        </div>
+
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-sm text-slate-600">
                             {formatSeconds(segment.start)} to {formatSeconds(segment.end)}
                           </p>
+                          <div className="relative h-2 rounded-full bg-slate-300/65">
+                            <span
+                              className="absolute top-0 h-2 rounded-full bg-sky-400/65"
+                              style={{
+                                left: `${startPercent}%`,
+                                width: `${widthPercent}%`
+                              }}
+                            />
+                          </div>
                         </div>
-                        <div className="glass-chip inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm text-slate-600">
+
+                        <div className="glass-chip inline-flex items-center gap-1 px-2.5 py-1 text-sm font-medium text-slate-700">
                           <Clock3 className="h-3.5 w-3.5" />
                           {formatSeconds(segment.duration)}
                         </div>
-                        <div className="text-sm font-medium text-slate-600">
+                        <div className="text-sm font-semibold tabular-nums text-slate-700">
                           {totalTime > 0 ? `${((segment.duration / totalTime) * 100).toFixed(1)}%` : "0.0%"}
                         </div>
                       </div>
-                    ))}
-                  </section>
-                ))
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
